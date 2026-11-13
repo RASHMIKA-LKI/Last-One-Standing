@@ -77,12 +77,16 @@ public class TemporarySandboxSetup : MonoBehaviour
         {
             GameObject gunInstance = Instantiate(gunPrefab, camObj.transform);
             gunInstance.name = "Equipped_Rifle";
-            gunInstance.transform.localPosition = new Vector3(0.22f, -0.19f, 0.42f);
-            gunInstance.transform.localRotation = Quaternion.Euler(0, 0, 0);
+            
+            // Model mesh is exported along +X. Rotate -91.5 deg on Y to face forward (+Z) and converge with crosshair
+            gunInstance.transform.localPosition = new Vector3(0.20f, -0.22f, 0.48f);
+            gunInstance.transform.localRotation = Quaternion.Euler(0.5f, -91.5f, 0.8f);
 
+            // Muzzle is at the exact physical tip of the rifle barrel (+X = 0.495m, +Y = 0.075m in mesh space)
             GameObject muzzle = new GameObject("GunMuzzle");
             muzzle.transform.parent = gunInstance.transform;
-            muzzle.transform.localPosition = new Vector3(0f, 0.04f, 0.55f);
+            muzzle.transform.localPosition = new Vector3(0.495f, 0.075f, 0.0f);
+            muzzle.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
 
             ps.gunTransform = gunInstance.transform;
             ps.gunMuzzle = muzzle.transform;
