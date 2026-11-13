@@ -16,10 +16,10 @@ public class FreezeTarget : MonoBehaviour
     private PlayerController playerController;
 
     [Header("Events")]
-    public UnityEvent<int> onLivesChanged;
-    public UnityEvent onFrozen;
-    public UnityEvent onUnfrozen;
-    public UnityEvent onEliminated;
+    public UnityEvent<int> onLivesChanged = new UnityEvent<int>();
+    public UnityEvent onFrozen = new UnityEvent();
+    public UnityEvent onUnfrozen = new UnityEvent();
+    public UnityEvent onEliminated = new UnityEvent();
 
     void Awake()
     {
