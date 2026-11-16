@@ -12,21 +12,16 @@ public class PreGameLobbyManager : MonoBehaviour
     private float currentCountdown = 0f;
     private bool isCountingDown = false;
 
-    [Header("References")]
+    [Header("Barriers")]
     public GameObject centralBarrier;
     public GameObject hostelGateBarrier;
-    public GameObject rivalBotInstance;
-    public Transform blueSpawnPoint;
-    public Transform redSpawnPoint;
 
-    private List<GameObject> bluePads = new List<GameObject>();
-    private List<GameObject> redPads = new List<GameObject>();
+    [Header("Spawn Reference")]
+    public Vector3 playerLobbySpawnPos;
 
     private Material forcefieldMaterial;
-    private Material bluePadMaterial;
-    private Material redPadMaterial;
-
-    private bool rivalReady = false;
+    private Material stoneMat;
+    private Material darkPlatMat;
 
     void Awake()
     {
@@ -56,9 +51,8 @@ public class PreGameLobbyManager : MonoBehaviour
 
     public void BuildLobbyEnvironment(Vector3 buildingCenter, float buildingMinZ)
     {
-        // Clean up any existing lobby
-        GameObject existing = GameObject.Find("[PRE_GAME_LOBBY_ARENA]");
-        if (existing != null) Destroy(existing);
+        // 1. Clean up any existing lobby arena and residual pads/signs/rivals
+        CleanupResidualLobbyObjects();
 
         GameObject lobbyRoot = new GameObject("[PRE_GAME_LOBBY_ARENA]");
 
@@ -66,30 +60,20 @@ public class PreGameLobbyManager : MonoBehaviour
         float centerZ = buildingMinZ - 18.0f;
         Vector3 lobbyCenter = new Vector3(centerX, 0.0f, centerZ);
 
+        playerLobbySpawnPos = lobbyCenter + new Vector3(-4.5f, 1.0f, 0f);
+
         Shader litShader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
 
-        // 1. Materials
-        // Architectural Stone / Concrete
-        Material stoneMat = new Material(litShader);
+        // 2. Clean Materials
+        // Architectural Stone / Marble Concrete
+        stoneMat = new Material(litShader);
         stoneMat.color = new Color(0.88f, 0.90f, 0.93f);
         stoneMat.SetFloat("_Smoothness", 0.35f);
 
         // Dark Platform & Canopy
-        Material darkPlatMat = new Material(litShader);
+        darkPlatMat = new Material(litShader);
         darkPlatMat.color = new Color(0.12f, 0.14f, 0.18f);
         darkPlatMat.SetFloat("_Smoothness", 0.5f);
-
-        // Glowing Blue Team Material
-        bluePadMaterial = new Material(litShader);
-        bluePadMaterial.color = new Color(0.05f, 0.55f, 0.95f);
-        bluePadMaterial.EnableKeyword("_EMISSION");
-        bluePadMaterial.SetColor("_EmissionColor", new Color(0.0f, 0.6f, 1.0f) * 1.5f);
-
-        // Glowing Red Team Material
-        redPadMaterial = new Material(litShader);
-        redPadMaterial.color = new Color(0.92f, 0.18f, 0.25f);
-        redPadMaterial.EnableKeyword("_EMISSION");
-        redPadMaterial.SetColor("_EmissionColor", new Color(1.0f, 0.15f, 0.2f) * 1.5f);
 
         // Transparent Glowing Cyan Forcefield Material
         forcefieldMaterial = new Material(litShader);
@@ -103,7 +87,7 @@ public class PreGameLobbyManager : MonoBehaviour
         forcefieldMaterial.EnableKeyword("_EMISSION");
         forcefieldMaterial.SetColor("_EmissionColor", new Color(0.1f, 0.6f, 1.0f) * 1.8f);
 
-        // 2. Base Terrace Platform
+        // 3. Base Terrace Platform
         GameObject terrace = GameObject.CreatePrimitive(PrimitiveType.Cube);
         terrace.name = "Lobby_Terrace_Floor";
         terrace.transform.parent = lobbyRoot.transform;
@@ -119,7 +103,7 @@ public class PreGameLobbyManager : MonoBehaviour
         curb.transform.localScale = new Vector3(28.4f, 0.15f, 20.4f);
         curb.GetComponent<Renderer>().material = stoneMat;
 
-        // 3. Four Massive Architectural Pillars (Matching Reference Image)
+        // 4. Four Massive Architectural Pillars (Matching Reference Image)
         float px = 9.5f;
         float pz = 7.5f;
         Vector3[] pillarOffsets = new Vector3[]
@@ -157,7 +141,7 @@ public class PreGameLobbyManager : MonoBehaviour
             pCap.GetComponent<Renderer>().material = stoneMat;
         }
 
-        // 4. Overhead Canopy Roof (Floating Architectural Roof from Reference)
+        // 5. Overhead Canopy Roof (Floating Architectural Roof from Reference)
         GameObject canopy = GameObject.CreatePrimitive(PrimitiveType.Cube);
         canopy.name = "Lobby_Canopy_Roof";
         canopy.transform.parent = lobbyRoot.transform;
@@ -165,75 +149,13 @@ public class PreGameLobbyManager : MonoBehaviour
         canopy.transform.localScale = new Vector3(22f, 0.5f, 17f);
         canopy.GetComponent<Renderer>().material = darkPlatMat;
 
-        // 5. Sci-Fi Geometric Pedestals / Shapes (As seen in Reference)
+        // 6. Sci-Fi Geometric Pedestals / Props (As seen in Reference)
         CreateGeometricProp(lobbyRoot.transform, lobbyCenter + new Vector3(-8.5f, 0.7f, 2f), PrimitiveType.Cube, new Vector3(1.4f, 1.0f, 1.4f), stoneMat);
         CreateGeometricProp(lobbyRoot.transform, lobbyCenter + new Vector3(-7f, 0.9f, 2f), PrimitiveType.Cylinder, new Vector3(0.9f, 0.8f, 0.9f), stoneMat);
         CreateGeometricProp(lobbyRoot.transform, lobbyCenter + new Vector3(8.5f, 0.7f, 2f), PrimitiveType.Cube, new Vector3(1.4f, 1.0f, 1.4f), stoneMat);
         CreateGeometricProp(lobbyRoot.transform, lobbyCenter + new Vector3(7f, 0.9f, 2f), PrimitiveType.Cylinder, new Vector3(0.9f, 0.8f, 0.9f), stoneMat);
 
-        // 6. TEAM BLUE ZONE (Left / West - Alpha Team)
-        GameObject blueLabel = new GameObject("BlueTeam_Zone_Sign");
-        blueLabel.transform.parent = lobbyRoot.transform;
-        blueLabel.transform.position = lobbyCenter + new Vector3(-5.5f, 3.2f, -pz);
-        TextMesh btm = blueLabel.AddComponent<TextMesh>();
-        btm.text = "ALPHA TEAM [BLUE]";
-        btm.fontSize = 28;
-        btm.alignment = TextAlignment.Center;
-        btm.anchor = TextAnchor.MiddleCenter;
-        btm.color = new Color(0.2f, 0.75f, 1.0f);
-        blueLabel.transform.localScale = Vector3.one * 0.15f;
-
-        // Team Blue Pads
-        Vector3[] bluePadCoords = new Vector3[]
-        {
-            lobbyCenter + new Vector3(-4.5f, 0.32f, -3.5f), // Primary Player Pad
-            lobbyCenter + new Vector3(-4.5f, 0.32f, 3.5f),
-            lobbyCenter + new Vector3(-7.5f, 0.32f, -0.5f),
-            lobbyCenter + new Vector3(-7.5f, 0.32f, 4.5f)
-        };
-
-        for (int i = 0; i < bluePadCoords.Length; i++)
-        {
-            GameObject pad = CreateTeamPad($"Blue_Pad_{i + 1}", bluePadCoords[i], lobbyRoot.transform, bluePadMaterial, new Color(0f, 0.6f, 1.0f));
-            bluePads.Add(pad);
-            if (i == 0)
-            {
-                blueSpawnPoint = pad.transform;
-            }
-        }
-
-        // 7. TEAM RED ZONE (Right / East - Bravo Team)
-        GameObject redLabel = new GameObject("RedTeam_Zone_Sign");
-        redLabel.transform.parent = lobbyRoot.transform;
-        redLabel.transform.position = lobbyCenter + new Vector3(5.5f, 3.2f, -pz);
-        TextMesh rtm = redLabel.AddComponent<TextMesh>();
-        rtm.text = "BRAVO TEAM [RED]";
-        rtm.fontSize = 28;
-        rtm.alignment = TextAlignment.Center;
-        rtm.anchor = TextAnchor.MiddleCenter;
-        rtm.color = new Color(1.0f, 0.25f, 0.35f);
-        redLabel.transform.localScale = Vector3.one * 0.15f;
-
-        // Team Red Pads
-        Vector3[] redPadCoords = new Vector3[]
-        {
-            lobbyCenter + new Vector3(4.5f, 0.32f, -3.5f), // Primary Rival Pad
-            lobbyCenter + new Vector3(4.5f, 0.32f, 3.5f),
-            lobbyCenter + new Vector3(7.5f, 0.32f, -0.5f),
-            lobbyCenter + new Vector3(7.5f, 0.32f, 4.5f)
-        };
-
-        for (int i = 0; i < redPadCoords.Length; i++)
-        {
-            GameObject pad = CreateTeamPad($"Red_Pad_{i + 1}", redPadCoords[i], lobbyRoot.transform, redPadMaterial, new Color(1.0f, 0.2f, 0.3f));
-            redPads.Add(pad);
-            if (i == 0)
-            {
-                redSpawnPoint = pad.transform;
-            }
-        }
-
-        // 8. THE CENTER FORCEFIELD BARRIER (See-through border between teams)
+        // 7. THE CENTER FORCEFIELD BARRIER (See-through border between the two sides)
         centralBarrier = GameObject.CreatePrimitive(PrimitiveType.Cube);
         centralBarrier.name = "Central_Team_Forcefield_Barrier";
         centralBarrier.transform.parent = lobbyRoot.transform;
@@ -241,7 +163,7 @@ public class PreGameLobbyManager : MonoBehaviour
         centralBarrier.transform.localScale = new Vector3(0.12f, 5.2f, 20.2f);
         centralBarrier.GetComponent<Renderer>().material = forcefieldMaterial;
         
-        // Solid physical collider preventing either team from crossing
+        // Solid physical collider preventing either side from crossing
         BoxCollider cbCol = centralBarrier.GetComponent<BoxCollider>();
         cbCol.isTrigger = false;
 
@@ -256,7 +178,7 @@ public class PreGameLobbyManager : MonoBehaviour
             pole.GetComponent<Renderer>().material = darkPlatMat;
         }
 
-        // 9. THE FRONT HOSTEL GATE BARRIER (Blocks entering building until match starts)
+        // 8. THE FRONT HOSTEL GATE BARRIER (Blocks entering building until match starts)
         hostelGateBarrier = GameObject.CreatePrimitive(PrimitiveType.Cube);
         hostelGateBarrier.name = "Hostel_Entrance_Forcefield_Gate";
         hostelGateBarrier.transform.parent = lobbyRoot.transform;
@@ -265,44 +187,49 @@ public class PreGameLobbyManager : MonoBehaviour
         hostelGateBarrier.GetComponent<Renderer>().material = forcefieldMaterial;
         hostelGateBarrier.GetComponent<BoxCollider>().isTrigger = false;
 
-        // 10. SPAWN OPPONENT PREVIEW CHARACTER ON RED PAD (Matching Reference Screenshot)
-        SpawnOpponentPreview(redSpawnPoint.position + Vector3.up * 0.95f, lobbyRoot.transform);
-
-        Debug.Log("[PreGameLobbyManager] Pre-game Team Lobby Arena created successfully with see-through central forcefield!");
+        Debug.Log("[PreGameLobbyManager] Clean Pre-game Staging Arena created with transparent central barrier and no residual pads.");
     }
 
-    private GameObject CreateTeamPad(string name, Vector3 pos, Transform parent, Material glowMat, Color lightColor)
+    private void CleanupResidualLobbyObjects()
     {
-        GameObject padRoot = new GameObject(name);
-        padRoot.transform.parent = parent;
-        padRoot.transform.position = pos;
+        // Clean old arena root if present
+        GameObject oldRoot = GameObject.Find("[PRE_GAME_LOBBY_ARENA]");
+        if (oldRoot != null)
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying) DestroyImmediate(oldRoot);
+            else Destroy(oldRoot);
+#else
+            Destroy(oldRoot);
+#endif
+        }
 
-        // Base riser
-        GameObject riser = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        riser.name = "Pad_Riser";
-        riser.transform.parent = padRoot.transform;
-        riser.transform.position = pos;
-        riser.transform.localScale = new Vector3(2.4f, 0.18f, 2.4f);
+        // Clean any standalone pad/sign/rival objects
+        string[] residualNames = new string[]
+        {
+            "Blue_Pad_1", "Blue_Pad_2", "Blue_Pad_3", "Blue_Pad_4",
+            "Red_Pad_1", "Red_Pad_2", "Red_Pad_3", "Red_Pad_4",
+            "Pad_Riser", "Pad_GlowCore", "Pad_GlowLight",
+            "BlueTeam_Zone_Sign", "RedTeam_Zone_Sign",
+            "Rival_Player_Preview", "Rival_NameTag_Badge", "Badge_Name", "Badge_Status"
+        };
 
-        // Glowing Core Surface
-        GameObject glowCore = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        glowCore.name = "Pad_GlowCore";
-        glowCore.transform.parent = padRoot.transform;
-        glowCore.transform.position = pos + new Vector3(0f, 0.08f, 0f);
-        glowCore.transform.localScale = new Vector3(2.0f, 0.06f, 2.0f);
-        glowCore.GetComponent<Renderer>().material = glowMat;
-
-        // Soft Point Light
-        GameObject lightObj = new GameObject("Pad_GlowLight");
-        lightObj.transform.parent = padRoot.transform;
-        lightObj.transform.position = pos + new Vector3(0f, 0.6f, 0f);
-        Light l = lightObj.AddComponent<Light>();
-        l.type = LightType.Point;
-        l.color = lightColor;
-        l.range = 3.5f;
-        l.intensity = 1.6f;
-
-        return padRoot;
+        foreach (var rName in residualNames)
+        {
+            GameObject[] found = GameObject.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+            foreach (var go in found)
+            {
+                if (go != null && (go.name == rName || go.name.StartsWith("Blue_Pad_") || go.name.StartsWith("Red_Pad_")))
+                {
+#if UNITY_EDITOR
+                    if (!Application.isPlaying) DestroyImmediate(go);
+                    else Destroy(go);
+#else
+                    Destroy(go);
+#endif
+                }
+            }
+        }
     }
 
     private void CreateGeometricProp(Transform parent, Vector3 pos, PrimitiveType type, Vector3 scale, Material mat)
@@ -315,79 +242,11 @@ public class PreGameLobbyManager : MonoBehaviour
         prop.GetComponent<Renderer>().material = mat;
     }
 
-    private void SpawnOpponentPreview(Vector3 pos, Transform parent)
-    {
-        rivalBotInstance = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        rivalBotInstance.name = "Rival_Player_Preview";
-        rivalBotInstance.transform.parent = parent;
-        rivalBotInstance.transform.position = pos;
-        rivalBotInstance.transform.rotation = Quaternion.Euler(0f, -90f, 0f); // Facing across center barrier towards Blue team!
-
-        // Give Mannequin Red/Metallic Skin
-        Renderer r = rivalBotInstance.GetComponent<Renderer>();
-        if (r != null)
-        {
-            Material rivalMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            rivalMat.color = new Color(0.85f, 0.22f, 0.25f);
-            rivalMat.SetFloat("_Metallic", 0.7f);
-            rivalMat.SetFloat("_Smoothness", 0.6f);
-            r.material = rivalMat;
-        }
-
-        // 3D Billboard Overhead Name Badge (Matching Reference: "DR Dreamrise / Not Ready")
-        GameObject badgeObj = new GameObject("Rival_NameTag_Badge");
-        badgeObj.transform.parent = rivalBotInstance.transform;
-        badgeObj.transform.localPosition = new Vector3(0f, 1.4f, 0f);
-
-        // Icon + Name
-        GameObject nameTextObj = new GameObject("Badge_Name");
-        nameTextObj.transform.parent = badgeObj.transform;
-        nameTextObj.transform.localPosition = new Vector3(0f, 0.25f, 0f);
-        TextMesh ntm = nameTextObj.AddComponent<TextMesh>();
-        ntm.text = "[DR] Dreamrise";
-        ntm.fontSize = 24;
-        ntm.alignment = TextAlignment.Center;
-        ntm.anchor = TextAnchor.MiddleCenter;
-        ntm.color = Color.white;
-        nameTextObj.transform.localScale = Vector3.one * 0.12f;
-
-        // Status Plate ("Not Ready")
-        GameObject statusTextObj = new GameObject("Badge_Status");
-        statusTextObj.transform.parent = badgeObj.transform;
-        statusTextObj.transform.localPosition = Vector3.zero;
-        TextMesh stm = statusTextObj.AddComponent<TextMesh>();
-        stm.text = "NOT READY";
-        stm.fontSize = 20;
-        stm.alignment = TextAlignment.Center;
-        stm.anchor = TextAnchor.MiddleCenter;
-        stm.color = new Color(1.0f, 0.3f, 0.3f);
-        statusTextObj.transform.localScale = Vector3.one * 0.12f;
-
-        badgeObj.AddComponent<LobbyBillboardLook>();
-    }
-
     public void StartGameCountdown()
     {
         if (isCountingDown || isMatchStarted) return;
         isCountingDown = true;
         currentCountdown = countdownDuration;
-        rivalReady = true;
-
-        // Update Rival status to READY
-        if (rivalBotInstance != null)
-        {
-            Transform statusT = rivalBotInstance.transform.Find("Rival_NameTag_Badge/Badge_Status");
-            if (statusT != null)
-            {
-                TextMesh tm = statusT.GetComponent<TextMesh>();
-                if (tm != null)
-                {
-                    tm.text = "READY!";
-                    tm.color = new Color(0.2f, 1.0f, 0.4f);
-                }
-            }
-        }
-
         StartCoroutine(CountdownRoutine());
     }
 
@@ -422,6 +281,8 @@ public class PreGameLobbyManager : MonoBehaviour
 
     private IEnumerator DissolveBarrier(GameObject barrier)
     {
+        if (barrier == null) yield break;
+
         Collider col = barrier.GetComponent<Collider>();
         if (col != null) col.enabled = false;
 
@@ -435,10 +296,10 @@ public class PreGameLobbyManager : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = elapsed / dur;
             barrier.transform.localScale = new Vector3(startScale.x, Mathf.Lerp(startScale.y, 0.01f, t), startScale.z);
-            if (rend != null)
+            if (rend != null && rend.material != null)
             {
                 Color c = rend.material.color;
-                c.a = Mathf.Lerp(0.35f, 0.0f, t);
+                c.a = Mathf.Lerp(0.32f, 0.0f, t);
                 rend.material.color = c;
             }
             yield return null;
@@ -448,13 +309,13 @@ public class PreGameLobbyManager : MonoBehaviour
 
     void OnGUI()
     {
-        // 1. Top-Left Advanced Lobby System Info (Exactly matching Reference Image)
+        // 1. Top-Left Advanced Lobby System Info (Matching Reference Image)
         if (!isMatchStarted)
         {
             GUIStyle headerStyle = new GUIStyle(GUI.skin.label);
             headerStyle.fontSize = 20;
             headerStyle.fontStyle = FontStyle.Bold;
-            headerStyle.normal.textColor = new Color(1.0f, 0.82f, 0.4f); // Golden amber like screenshot
+            headerStyle.normal.textColor = new Color(1.0f, 0.82f, 0.4f); // Golden amber
 
             GUIStyle bulletStyle = new GUIStyle(GUI.skin.label);
             bulletStyle.fontSize = 13;
@@ -465,14 +326,14 @@ public class PreGameLobbyManager : MonoBehaviour
             GUI.Label(new Rect(25, 75, 300, 20), "• Waiting for players ready", bulletStyle);
             GUI.Label(new Rect(25, 95, 300, 20), "• Chat System Active", bulletStyle);
 
-            // Center Forcefield Warning
+            // Center Forcefield Info
             GUIStyle bannerStyle = new GUIStyle(GUI.skin.label);
             bannerStyle.fontSize = 14;
             bannerStyle.alignment = TextAnchor.MiddleCenter;
             bannerStyle.fontStyle = FontStyle.Bold;
             bannerStyle.normal.textColor = new Color(0.4f, 0.85f, 1.0f);
 
-            GUI.Label(new Rect(Screen.width * 0.5f - 200, 25, 400, 30), "◄ ALPHA TEAM [BLUE]  |  FORCEFIELD BARRIER  |  BRAVO TEAM [RED] ►", bannerStyle);
+            GUI.Label(new Rect(Screen.width * 0.5f - 200, 25, 400, 30), "◄ TEAM 1  |  TRANSPARENT BARRIER  |  TEAM 2 ►", bannerStyle);
         }
 
         // 2. Countdown Display
@@ -509,7 +370,6 @@ public class PreGameLobbyManager : MonoBehaviour
 
             GUI.backgroundColor = oldBg;
 
-            // Small prompt under button
             GUIStyle hintStyle = new GUIStyle(GUI.skin.label);
             hintStyle.fontSize = 11;
             hintStyle.alignment = TextAnchor.MiddleCenter;
@@ -526,27 +386,7 @@ public class PreGameLobbyManager : MonoBehaviour
             goStyle.alignment = TextAnchor.MiddleCenter;
             goStyle.normal.textColor = new Color(0.2f, 1.0f, 0.4f);
 
-            GUI.Label(new Rect(Screen.width * 0.5f - 250, 45, 500, 35), "BARRIERS DOWN! ENTER THE HOSTEL AND ELIMINATE ENEMIES!", goStyle);
-        }
-    }
-}
-
-// Billboard component so nametags always face the active camera
-public class LobbyBillboardLook : MonoBehaviour
-{
-    private Camera cam;
-
-    void Start()
-    {
-        cam = Camera.main;
-    }
-
-    void LateUpdate()
-    {
-        if (cam == null) cam = Camera.main;
-        if (cam != null)
-        {
-            transform.rotation = Quaternion.LookRotation(transform.position - cam.transform.position);
+            GUI.Label(new Rect(Screen.width * 0.5f - 250, 45, 500, 35), "BARRIERS DOWN! ENTER THE HOSTEL AND PLAY!", goStyle);
         }
     }
 }

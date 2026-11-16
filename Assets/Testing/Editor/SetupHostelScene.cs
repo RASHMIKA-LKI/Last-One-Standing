@@ -42,30 +42,24 @@ public static class SetupHostelScene
             SetupGroundPlane(b);
         }
 
-        // 4. Create Pre-Game Lobby Staging Arena (Two Teams + Forcefield Barrier)
+        // 4. Create Pre-Game Lobby Staging Arena (Two Sides + Forcefield Barrier)
         GameObject lobbySys = GameObject.Find("[LOBBY_MANAGER]");
         if (lobbySys == null) lobbySys = new GameObject("[LOBBY_MANAGER]");
         var lobbyManager = lobbySys.GetComponent<PreGameLobbyManager>();
         if (lobbyManager == null) lobbyManager = lobbySys.AddComponent<PreGameLobbyManager>();
         lobbyManager.BuildLobbyEnvironment(b.center, b.min.z);
 
-        // 5. Create Player in front of the Hostel on Blue Team Pad
+        // 5. Create Player in front of the Hostel on left side of terrace
         GameObject playerObj = GameObject.Find("Player_Survivor");
         if (playerObj == null)
         {
             playerObj = SetupPlayer(b);
         }
 
-        // 5. Setup Gameplay Systems (Minimap, FloorTracker, HUD, Voice, Chat)
+        // 6. Setup Gameplay Systems (Minimap, FloorTracker, HUD, Voice, Chat)
         if (GameObject.Find("[GAMEPLAY_SYSTEMS]") == null)
         {
             SetupGameplaySystems(playerObj, b);
-        }
-
-        // 6. Spawn Enemies on EACH FLOOR
-        if (GameObject.Find("[ENEMIES_ROOT]") == null)
-        {
-            SetupEnemiesOnFloors(b, playerObj);
         }
 
         // Save Scene
@@ -202,9 +196,9 @@ public static class SetupHostelScene
         CapsuleCollider defaultCol = player.GetComponent<CapsuleCollider>();
         if (defaultCol != null) Object.DestroyImmediate(defaultCol);
 
-        // Position on Team Blue's primary pad facing across the forcefield towards Team Red
-        player.transform.position = new Vector3(b.center.x - 4.5f, 1.0f, b.min.z - 21.5f);
-        player.transform.rotation = Quaternion.Euler(0f, 65f, 0f); // Looking across forcefield at opposing team
+        // Position on left side of staging terrace facing across forcefield
+        player.transform.position = new Vector3(b.center.x - 4.5f, 1.0f, b.min.z - 18.0f);
+        player.transform.rotation = Quaternion.Euler(0f, 65f, 0f); // Looking across forcefield at opposing side
 
         // CharacterController
         var cc = player.GetComponent<CharacterController>();

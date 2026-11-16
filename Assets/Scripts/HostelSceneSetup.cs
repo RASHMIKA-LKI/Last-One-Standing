@@ -8,7 +8,7 @@ public class HostelSceneSetup : MonoBehaviour
     public float groundPlaneSize = 160f;
 
     [Header("Enemies Setup")]
-    public bool spawnEnemies = true;
+    public bool spawnEnemies = false;
     public int enemiesPerFloor = 2;
     public float enemyMoveSpeed = 2.2f;
 
@@ -211,13 +211,13 @@ public class HostelSceneSetup : MonoBehaviour
         CapsuleCollider defaultCol = playerInstance.GetComponent<CapsuleCollider>();
         if (defaultCol != null) Destroy(defaultCol);
 
-        // Position on Team Blue's primary staging pad facing across the forcefield towards Team Red
-        Vector3 spawnPos = (lobbyManager != null && lobbyManager.blueSpawnPoint != null)
-            ? lobbyManager.blueSpawnPoint.position + Vector3.up * 1.0f
-            : new Vector3(buildingBounds.center.x - 4.5f, 1.0f, buildingBounds.min.z - 21.5f);
+        // Position on the left side of the pre-game staging terrace facing across the central forcefield
+        Vector3 spawnPos = (lobbyManager != null && lobbyManager.playerLobbySpawnPos != Vector3.zero)
+            ? lobbyManager.playerLobbySpawnPos
+            : new Vector3(buildingBounds.center.x - 4.5f, 1.0f, buildingBounds.min.z - 18.0f);
 
         playerInstance.transform.position = spawnPos;
-        playerInstance.transform.rotation = Quaternion.Euler(0f, 65f, 0f); // Looking across the forcefield at opposing Team Red
+        playerInstance.transform.rotation = Quaternion.Euler(0f, 65f, 0f); // Looking across the forcefield at the other side
 
         // CharacterController tuned for smooth stair and slope traversal
         var cc = playerInstance.GetComponent<CharacterController>();
