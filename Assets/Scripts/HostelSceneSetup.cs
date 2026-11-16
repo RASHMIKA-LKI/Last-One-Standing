@@ -84,6 +84,11 @@ public class HostelSceneSetup : MonoBehaviour
         buildingInstance = GameObject.Find("[HOSTEL_BUILDING]");
         if (buildingInstance == null)
         {
+            buildingInstance = GameObject.Find("Hostel_Optimized") ?? GameObject.Find("HostelBuilding");
+        }
+
+        if (buildingInstance == null)
+        {
             if (hostelPrefab == null)
             {
 #if UNITY_EDITOR
@@ -108,20 +113,85 @@ public class HostelSceneSetup : MonoBehaviour
             GameObject oldSlabs = GameObject.Find("Hostel_Floor_Slabs");
             if (oldSlabs != null) Destroy(oldSlabs);
 
-            // Ensure ALL meshes (including invisible COL_ ramp colliders) have solid MeshColliders
-            int colCount = 0;
+            // Configure collision across all building geometry
+            int floorCount = 0;
+            int boxColCount = 0;
+            int rampCount = 0;
+            int meshColCount = 0;
+
             MeshFilter[] allFilters = buildingInstance.GetComponentsInChildren<MeshFilter>(true);
             foreach (var mf in allFilters)
             {
-                if (mf != null && mf.sharedMesh != null)
+                if (mf == null || mf.sharedMesh == null) continue;
+
+                string objName = mf.gameObject.name;
+                bool isCol = objName.StartsWith("COL_");
+                bool isFloor = objName.Contains("Floor");
+                bool isRamp = objName.Contains("Ramp") || (isCol && objName.Contains("Stair"));
+
+                if (isFloor)
                 {
+                    // CRITICAL FIX FOR COL_Room_5_Floor AND ALL ROOM FLOORS:
+                    // Thin non-convex MeshColliders cause PhysX CharacterControllers to fall through.
+                    // Replace with a solid 3D BoxCollider that extends 0.85m downwards while keeping
+                    // the top walking surface flush with the original mesh height.
+                    MeshCollider mc = mf.GetComponent<MeshCollider>();
+                    if (mc != null) Destroy(mc);
+
+                    BoxCollider bc = mf.GetComponent<BoxCollider>();
+                    if (bc == null) bc = mf.gameObject.AddComponent<BoxCollider>();
+
+                    Vector3 meshSize = mf.sharedMesh.bounds.size;
+                    Vector3 meshCenter = mf.sharedMesh.bounds.center;
+
+                    float solidThickness = Mathf.Max(meshSize.y, 0.85f);
+                    float originalTopY = meshCenter.y + (meshSize.y * 0.5f);
+
+                    bc.size = new Vector3(meshSize.x, solidThickness, meshSize.z);
+                    bc.center = new Vector3(meshCenter.x, originalTopY - (solidThickness * 0.5f), meshCenter.z);
+                    bc.isTrigger = false;
+                    floorCount++;
+                    boxColCount++;
+                }
+                else if (isRamp)
+                {
+                    // Stair ramps: Use convex MeshCollider to create a solid 3D wedge
+                    BoxCollider bc = mf.GetComponent<BoxCollider>();
+                    if (bc != null) Destroy(bc);
+
                     MeshCollider mc = mf.GetComponent<MeshCollider>();
                     if (mc == null) mc = mf.gameObject.AddComponent<MeshCollider>();
                     mc.sharedMesh = mf.sharedMesh;
-                    colCount++;
+                    mc.convex = true;
+                    mc.isTrigger = false;
+                    rampCount++;
+                    meshColCount++;
+                }
+                else if (isCol)
+                {
+                    // Lockers, desks, bunks, walls, guards: All are box collision shapes
+                    MeshCollider mc = mf.GetComponent<MeshCollider>();
+                    if (mc != null) Destroy(mc);
+
+                    BoxCollider bc = mf.GetComponent<BoxCollider>();
+                    if (bc == null) bc = mf.gameObject.AddComponent<BoxCollider>();
+                    bc.center = mf.sharedMesh.bounds.center;
+                    bc.size = mf.sharedMesh.bounds.size;
+                    bc.isTrigger = false;
+                    boxColCount++;
+                }
+                else
+                {
+                    // Visual meshes (walls, outer facade, roof, etc.)
+                    MeshCollider mc = mf.GetComponent<MeshCollider>();
+                    if (mc == null) mc = mf.gameObject.AddComponent<MeshCollider>();
+                    mc.sharedMesh = mf.sharedMesh;
+                    mc.isTrigger = false;
+                    meshColCount++;
                 }
             }
-            Debug.Log($"[HostelSceneSetup] Configured {colCount} MeshColliders across ALL building and stair meshes.");
+
+            Debug.Log($"[HostelSceneSetup] Colliders successfully configured: {floorCount} solid floor BoxColliders (including COL_Room_5_Floor), {boxColCount} total BoxColliders, {rampCount} convex ramps, {meshColCount} MeshColliders.");
             buildingBounds = CalculateBounds(buildingInstance);
         }
         else
@@ -187,9 +257,9 @@ public class HostelSceneSetup : MonoBehaviour
         cc.height = 1.8f;
         cc.radius = 0.32f; // Slim radius for narrow doors and stairways
         cc.center = Vector3.zero;
-        cc.slopeLimit = 65f; // Easily climbs steep 45-60 degree stairs
-        cc.stepOffset = 0.5f; // Easily steps onto stair steps up to 50cm
-        cc.skinWidth = 0.08f; // Prevents clipping through thin steps
+        cc.slopeLimit = 60f; // Climbs 45-60 degree stairs smoothly
+        cc.stepOffset = 0.35f; // Steps over curbs and stair steps cleanly
+        cc.skinWidth = 0.025f; // Optimal skin width prevents sinking into floors
         cc.minMoveDistance = 0f;
 
         // Camera

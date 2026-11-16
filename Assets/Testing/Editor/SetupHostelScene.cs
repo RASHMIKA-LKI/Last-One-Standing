@@ -20,14 +20,7 @@ public static class SetupHostelScene
         string scenePath = "Assets/Scenes/Hostal.unity";
         var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
-        // Check if already populated to avoid duplicate initialization
-        if (GameObject.Find("[HOSTEL_BUILDING]") != null)
-        {
-            Debug.Log("[SetupHostelScene] Scene already populated with [HOSTEL_BUILDING]. Skipping auto-build. (Use menu 'Hostel/Build Full Hostel Scene' to rebuild).");
-            return;
-        }
-
-        Debug.Log("[SetupHostelScene] Building Hostel Scene...");
+        Debug.Log("[SetupHostelScene] Validating and configuring colliders on Hostel Scene...");
 
         // 1. Setup Environment Lighting & Atmosphere
         SetupLighting();
@@ -44,21 +37,34 @@ public static class SetupHostelScene
         Debug.Log($"[SetupHostelScene] Hostel Bounds: Center={b.center}, Size={b.size}, Min={b.min}, Max={b.max}");
 
         // 3. Create Ground Plane in front of and under Hostel
-        SetupGroundPlane(b);
+        if (GameObject.Find("Ground_Courtyard") == null)
+        {
+            SetupGroundPlane(b);
+        }
 
         // 4. Create Player in front of the Hostel
-        GameObject playerObj = SetupPlayer(b);
+        GameObject playerObj = GameObject.Find("Player_Survivor");
+        if (playerObj == null)
+        {
+            playerObj = SetupPlayer(b);
+        }
 
         // 5. Setup Gameplay Systems (Minimap, FloorTracker, HUD, Voice, Chat)
-        SetupGameplaySystems(playerObj, b);
+        if (GameObject.Find("[GAMEPLAY_SYSTEMS]") == null)
+        {
+            SetupGameplaySystems(playerObj, b);
+        }
 
         // 6. Spawn Enemies on EACH FLOOR
-        SetupEnemiesOnFloors(b, playerObj);
+        if (GameObject.Find("[ENEMIES_ROOT]") == null)
+        {
+            SetupEnemiesOnFloors(b, playerObj);
+        }
 
         // Save Scene
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
-        Debug.Log("[SetupHostelScene] Hostal.unity successfully built and saved!");
+        Debug.Log("[SetupHostelScene] Hostal.unity successfully validated, updated, and saved!");
     }
 
     private static void SetupLighting()
@@ -99,37 +105,100 @@ public static class SetupHostelScene
 
     private static GameObject SetupHostelBuilding()
     {
-        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/Environment/Hostel_Optimized.fbx");
-        if (prefab == null)
+        GameObject instance = GameObject.Find("[HOSTEL_BUILDING]");
+        if (instance == null)
         {
-            prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/Environment/HostelBuilding.fbx");
+            instance = GameObject.Find("Hostel_Optimized") ?? GameObject.Find("HostelBuilding");
         }
 
-        if (prefab == null) return null;
-
-        GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-        instance.name = "[HOSTEL_BUILDING]";
-        instance.transform.position = Vector3.zero;
-        instance.transform.rotation = Quaternion.identity;
-
-        // Add MeshColliders to all renderable meshes so floors/walls/stairs are solid
-        MeshRenderer[] renderers = instance.GetComponentsInChildren<MeshRenderer>();
-        int colliderCount = 0;
-        foreach (var rend in renderers)
+        if (instance == null)
         {
-            MeshFilter mf = rend.GetComponent<MeshFilter>();
-            if (mf != null && mf.sharedMesh != null)
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/Environment/Hostel_Optimized.fbx");
+            if (prefab == null)
             {
-                MeshCollider mc = rend.GetComponent<MeshCollider>();
-                if (mc == null)
-                {
-                    mc = rend.gameObject.AddComponent<MeshCollider>();
-                }
+                prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/Environment/HostelBuilding.fbx");
+            }
+
+            if (prefab == null) return null;
+
+            instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            instance.name = "[HOSTEL_BUILDING]";
+            instance.transform.position = Vector3.zero;
+            instance.transform.rotation = Quaternion.identity;
+        }
+
+        // Configure solid BoxColliders for all floors, rooms, and furniture, and convex ramps for stairs
+        MeshFilter[] allFilters = instance.GetComponentsInChildren<MeshFilter>(true);
+        int floorCount = 0;
+        int boxCount = 0;
+        int rampCount = 0;
+        int meshCount = 0;
+
+        foreach (var mf in allFilters)
+        {
+            if (mf == null || mf.sharedMesh == null) continue;
+
+            string objName = mf.gameObject.name;
+            bool isCol = objName.StartsWith("COL_");
+            bool isFloor = objName.Contains("Floor");
+            bool isRamp = objName.Contains("Ramp") || (isCol && objName.Contains("Stair"));
+
+            if (isFloor)
+            {
+                // CRITICAL: Remove thin MeshCollider and add solid 0.85m thick BoxCollider flush with walking surface
+                MeshCollider mc = mf.GetComponent<MeshCollider>();
+                if (mc != null) Object.DestroyImmediate(mc);
+
+                BoxCollider bc = mf.GetComponent<BoxCollider>();
+                if (bc == null) bc = mf.gameObject.AddComponent<BoxCollider>();
+
+                Vector3 meshSize = mf.sharedMesh.bounds.size;
+                Vector3 meshCenter = mf.sharedMesh.bounds.center;
+
+                float solidThickness = Mathf.Max(meshSize.y, 0.85f);
+                float originalTopY = meshCenter.y + (meshSize.y * 0.5f);
+
+                bc.size = new Vector3(meshSize.x, solidThickness, meshSize.z);
+                bc.center = new Vector3(meshCenter.x, originalTopY - (solidThickness * 0.5f), meshCenter.z);
+                bc.isTrigger = false;
+                floorCount++;
+                boxCount++;
+            }
+            else if (isRamp)
+            {
+                BoxCollider bc = mf.GetComponent<BoxCollider>();
+                if (bc != null) Object.DestroyImmediate(bc);
+
+                MeshCollider mc = mf.GetComponent<MeshCollider>();
+                if (mc == null) mc = mf.gameObject.AddComponent<MeshCollider>();
                 mc.sharedMesh = mf.sharedMesh;
-                colliderCount++;
+                mc.convex = true;
+                mc.isTrigger = false;
+                rampCount++;
+                meshCount++;
+            }
+            else if (isCol)
+            {
+                MeshCollider mc = mf.GetComponent<MeshCollider>();
+                if (mc != null) Object.DestroyImmediate(mc);
+
+                BoxCollider bc = mf.GetComponent<BoxCollider>();
+                if (bc == null) bc = mf.gameObject.AddComponent<BoxCollider>();
+                bc.center = mf.sharedMesh.bounds.center;
+                bc.size = mf.sharedMesh.bounds.size;
+                bc.isTrigger = false;
+                boxCount++;
+            }
+            else
+            {
+                MeshCollider mc = mf.GetComponent<MeshCollider>();
+                if (mc == null) mc = mf.gameObject.AddComponent<MeshCollider>();
+                mc.sharedMesh = mf.sharedMesh;
+                mc.isTrigger = false;
+                meshCount++;
             }
         }
-        Debug.Log($"[SetupHostelScene] Attached {colliderCount} MeshColliders across all building meshes.");
+        Debug.Log($"[SetupHostelScene] Configured colliders: {floorCount} solid floor BoxColliders, {boxCount} total BoxColliders, {rampCount} convex ramps, {meshCount} MeshColliders.");
         return instance;
     }
 
@@ -165,6 +234,10 @@ public static class SetupHostelScene
         player.name = "Player_Survivor";
         player.tag = "Player";
 
+        // Remove default CapsuleCollider primitive to avoid conflict with CharacterController
+        CapsuleCollider defaultCol = player.GetComponent<CapsuleCollider>();
+        if (defaultCol != null) Object.DestroyImmediate(defaultCol);
+
         // Position in front of hostel courtyard facing entrance
         float spawnZ = b.min.z - 10f; // 10 meters in front of the building
         float spawnY = b.min.y + 1.1f;
@@ -175,10 +248,11 @@ public static class SetupHostelScene
         var cc = player.GetComponent<CharacterController>();
         if (cc == null) cc = player.AddComponent<CharacterController>();
         cc.height = 1.8f;
-        cc.radius = 0.4f;
+        cc.radius = 0.32f;
         cc.center = Vector3.zero;
-        cc.slopeLimit = 55f;
-        cc.stepOffset = 0.4f;
+        cc.slopeLimit = 60f;
+        cc.stepOffset = 0.35f;
+        cc.skinWidth = 0.025f;
 
         // Player Camera
         GameObject camObj = new GameObject("PlayerCamera");

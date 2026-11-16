@@ -116,7 +116,7 @@ public class PlayerController : MonoBehaviour
         isGrounded = controller.isGrounded;
         if (isGrounded && velocity.y < 0)
         {
-            velocity.y = -5f; // Keep firmly snapped to stairs and slopes
+            velocity.y = -1.5f; // Keep firmly snapped to stairs and slopes without over-penetrating colliders
         }
 
         Vector2 inputMove = Vector2.zero;
@@ -159,6 +159,15 @@ public class PlayerController : MonoBehaviour
         // Combine horizontal and vertical move into ONE single Move call (prevents falling through stairs)
         Vector3 combinedMove = move + Vector3.up * velocity.y;
         controller.Move(combinedMove * Time.deltaTime);
+
+        // Failsafe: If player somehow drops out of bounds below ground, respawn at entrance
+        if (transform.position.y < -5.0f)
+        {
+            controller.enabled = false;
+            transform.position = new Vector3(0f, 1.2f, -10f);
+            velocity = Vector3.zero;
+            controller.enabled = true;
+        }
     }
 
     private void ApplyGravityOnly()
