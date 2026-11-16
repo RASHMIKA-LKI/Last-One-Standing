@@ -116,7 +116,7 @@ public class PlayerController : MonoBehaviour
         isGrounded = controller.isGrounded;
         if (isGrounded && velocity.y < 0)
         {
-            velocity.y = -2f; // Keep grounded firmly
+            velocity.y = -5f; // Keep firmly snapped to stairs and slopes
         }
 
         Vector2 inputMove = Vector2.zero;
@@ -147,8 +147,6 @@ public class PlayerController : MonoBehaviour
         float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
         Vector3 move = (transform.right * inputMove.x + transform.forward * inputMove.y) * currentSpeed;
 
-        controller.Move(move * Time.deltaTime);
-
         // Jump
         if (jumpPressed && isGrounded)
         {
@@ -157,7 +155,10 @@ public class PlayerController : MonoBehaviour
 
         // Apply gravity
         velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
+
+        // Combine horizontal and vertical move into ONE single Move call (prevents falling through stairs)
+        Vector3 combinedMove = move + Vector3.up * velocity.y;
+        controller.Move(combinedMove * Time.deltaTime);
     }
 
     private void ApplyGravityOnly()

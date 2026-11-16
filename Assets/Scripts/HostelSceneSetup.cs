@@ -104,42 +104,25 @@ public class HostelSceneSetup : MonoBehaviour
 
         if (buildingInstance != null)
         {
-            // Ensure all meshes have MeshColliders so walls/stairs are solid
+            // Remove any legacy slabs that block stairwells
+            GameObject oldSlabs = GameObject.Find("Hostel_Floor_Slabs");
+            if (oldSlabs != null) Destroy(oldSlabs);
+
+            // Ensure ALL meshes (including invisible COL_ ramp colliders) have solid MeshColliders
             int colCount = 0;
-            MeshRenderer[] renderers = buildingInstance.GetComponentsInChildren<MeshRenderer>();
-            foreach (var r in renderers)
+            MeshFilter[] allFilters = buildingInstance.GetComponentsInChildren<MeshFilter>(true);
+            foreach (var mf in allFilters)
             {
-                MeshFilter mf = r.GetComponent<MeshFilter>();
                 if (mf != null && mf.sharedMesh != null)
                 {
-                    MeshCollider mc = r.GetComponent<MeshCollider>();
-                    if (mc == null) mc = r.gameObject.AddComponent<MeshCollider>();
+                    MeshCollider mc = mf.GetComponent<MeshCollider>();
+                    if (mc == null) mc = mf.gameObject.AddComponent<MeshCollider>();
                     mc.sharedMesh = mf.sharedMesh;
                     colCount++;
                 }
             }
-            Debug.Log($"[HostelSceneSetup] Configured {colCount} MeshColliders on Hostel geometry.");
+            Debug.Log($"[HostelSceneSetup] Configured {colCount} MeshColliders across ALL building and stair meshes.");
             buildingBounds = CalculateBounds(buildingInstance);
-
-            // Add solid floor slabs to guarantee 100% stable footing on every level
-            if (GameObject.Find("Hostel_Floor_Slabs") == null)
-            {
-                GameObject slabsRoot = new GameObject("Hostel_Floor_Slabs");
-                slabsRoot.transform.parent = buildingInstance.transform;
-                float floorH = buildingBounds.size.y / 4.0f;
-                float slabThickness = 0.3f;
-
-                for (int i = 0; i < 4; i++)
-                {
-                    float floorSurfaceY = i * floorH;
-                    GameObject slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    slab.name = $"Floor_{i + 1}_SolidSlab";
-                    slab.transform.parent = slabsRoot.transform;
-                    slab.transform.position = new Vector3(buildingBounds.center.x, floorSurfaceY - slabThickness / 2.0f, buildingBounds.center.z);
-                    slab.transform.localScale = new Vector3(buildingBounds.size.x, slabThickness, buildingBounds.size.z);
-                    Destroy(slab.GetComponent<MeshRenderer>()); // Invisible solid collision
-                }
-            }
         }
         else
         {
@@ -198,14 +181,16 @@ public class HostelSceneSetup : MonoBehaviour
         playerInstance.transform.position = new Vector3(spawnX, spawnY, spawnZ);
         playerInstance.transform.rotation = Quaternion.Euler(0f, 0f, 0f); // Looking towards building (+Z)
 
-        // CharacterController
+        // CharacterController tuned for smooth stair and slope traversal
         var cc = playerInstance.GetComponent<CharacterController>();
         if (cc == null) cc = playerInstance.AddComponent<CharacterController>();
         cc.height = 1.8f;
-        cc.radius = 0.4f;
+        cc.radius = 0.32f; // Slim radius for narrow doors and stairways
         cc.center = Vector3.zero;
-        cc.slopeLimit = 55f;
-        cc.stepOffset = 0.45f;
+        cc.slopeLimit = 65f; // Easily climbs steep 45-60 degree stairs
+        cc.stepOffset = 0.5f; // Easily steps onto stair steps up to 50cm
+        cc.skinWidth = 0.08f; // Prevents clipping through thin steps
+        cc.minMoveDistance = 0f;
 
         // Camera
         GameObject camObj = new GameObject("PlayerCamera");
