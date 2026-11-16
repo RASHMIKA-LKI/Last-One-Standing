@@ -26,6 +26,7 @@ public class PreGameLobbyManager : MonoBehaviour
     void Awake()
     {
         Instance = this;
+        CleanupResidualLobbyObjects();
     }
 
     void Update()
@@ -149,13 +150,7 @@ public class PreGameLobbyManager : MonoBehaviour
         canopy.transform.localScale = new Vector3(22f, 0.5f, 17f);
         canopy.GetComponent<Renderer>().material = darkPlatMat;
 
-        // 6. Sci-Fi Geometric Pedestals / Props (As seen in Reference)
-        CreateGeometricProp(lobbyRoot.transform, lobbyCenter + new Vector3(-8.5f, 0.7f, 2f), PrimitiveType.Cube, new Vector3(1.4f, 1.0f, 1.4f), stoneMat);
-        CreateGeometricProp(lobbyRoot.transform, lobbyCenter + new Vector3(-7f, 0.9f, 2f), PrimitiveType.Cylinder, new Vector3(0.9f, 0.8f, 0.9f), stoneMat);
-        CreateGeometricProp(lobbyRoot.transform, lobbyCenter + new Vector3(8.5f, 0.7f, 2f), PrimitiveType.Cube, new Vector3(1.4f, 1.0f, 1.4f), stoneMat);
-        CreateGeometricProp(lobbyRoot.transform, lobbyCenter + new Vector3(7f, 0.9f, 2f), PrimitiveType.Cylinder, new Vector3(0.9f, 0.8f, 0.9f), stoneMat);
-
-        // 7. THE CENTER FORCEFIELD BARRIER (See-through border between the two sides)
+        // 6. THE CENTER FORCEFIELD BARRIER (See-through border between the two sides)
         centralBarrier = GameObject.CreatePrimitive(PrimitiveType.Cube);
         centralBarrier.name = "Central_Team_Forcefield_Barrier";
         centralBarrier.transform.parent = lobbyRoot.transform;
@@ -167,18 +162,7 @@ public class PreGameLobbyManager : MonoBehaviour
         BoxCollider cbCol = centralBarrier.GetComponent<BoxCollider>();
         cbCol.isTrigger = false;
 
-        // Decorative Laser Frame Poles along the center divider
-        for (float zOff = -9f; zOff <= 9f; zOff += 6f)
-        {
-            GameObject pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            pole.name = "Forcefield_Emitter_Pole";
-            pole.transform.parent = centralBarrier.transform;
-            pole.transform.position = lobbyCenter + new Vector3(0f, 2.7f, zOff);
-            pole.transform.localScale = new Vector3(0.25f, 2.6f, 0.25f);
-            pole.GetComponent<Renderer>().material = darkPlatMat;
-        }
-
-        // 8. THE FRONT HOSTEL GATE BARRIER (Blocks entering building until match starts)
+        // 7. THE FRONT HOSTEL GATE BARRIER (Blocks entering building until match starts)
         hostelGateBarrier = GameObject.CreatePrimitive(PrimitiveType.Cube);
         hostelGateBarrier.name = "Hostel_Entrance_Forcefield_Gate";
         hostelGateBarrier.transform.parent = lobbyRoot.transform;
@@ -187,7 +171,7 @@ public class PreGameLobbyManager : MonoBehaviour
         hostelGateBarrier.GetComponent<Renderer>().material = forcefieldMaterial;
         hostelGateBarrier.GetComponent<BoxCollider>().isTrigger = false;
 
-        Debug.Log("[PreGameLobbyManager] Clean Pre-game Staging Arena created with transparent central barrier and no residual pads.");
+        Debug.Log("[PreGameLobbyManager] Clean Pre-game Staging Arena created with transparent central barrier.");
     }
 
     private void CleanupResidualLobbyObjects()
@@ -204,9 +188,10 @@ public class PreGameLobbyManager : MonoBehaviour
 #endif
         }
 
-        // Clean any standalone pad/sign/rival objects
+        // Clean any standalone props, poles, pad/sign/rival objects
         string[] residualNames = new string[]
         {
+            "Forcefield_Emitter_Pole", "Lobby_Deco_Prop",
             "Blue_Pad_1", "Blue_Pad_2", "Blue_Pad_3", "Blue_Pad_4",
             "Red_Pad_1", "Red_Pad_2", "Red_Pad_3", "Red_Pad_4",
             "Pad_Riser", "Pad_GlowCore", "Pad_GlowLight",
@@ -216,10 +201,10 @@ public class PreGameLobbyManager : MonoBehaviour
 
         foreach (var rName in residualNames)
         {
-            GameObject[] found = GameObject.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+            GameObject[] found = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var go in found)
             {
-                if (go != null && (go.name == rName || go.name.StartsWith("Blue_Pad_") || go.name.StartsWith("Red_Pad_")))
+                if (go != null && (go.name == rName || go.name.StartsWith("Blue_Pad_") || go.name.StartsWith("Red_Pad_") || go.name.StartsWith("Forcefield_Emitter_Pole") || go.name.StartsWith("Lobby_Deco_Prop")))
                 {
 #if UNITY_EDITOR
                     if (!Application.isPlaying) DestroyImmediate(go);
@@ -230,16 +215,6 @@ public class PreGameLobbyManager : MonoBehaviour
                 }
             }
         }
-    }
-
-    private void CreateGeometricProp(Transform parent, Vector3 pos, PrimitiveType type, Vector3 scale, Material mat)
-    {
-        GameObject prop = GameObject.CreatePrimitive(type);
-        prop.name = "Lobby_Deco_Prop";
-        prop.transform.parent = parent;
-        prop.transform.position = pos;
-        prop.transform.localScale = scale;
-        prop.GetComponent<Renderer>().material = mat;
     }
 
     public void StartGameCountdown()

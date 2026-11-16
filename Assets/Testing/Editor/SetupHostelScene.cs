@@ -10,7 +10,7 @@ public static class SetupHostelScene
     [InitializeOnLoadMethod]
     public static void ExecuteSetup()
     {
-        // Avoid running during play mode or repeatedly if already built
+        // Run rebuild on assembly reload to sync scene
         if (EditorApplication.isPlayingOrWillChangePlaymode) return;
         EditorApplication.delayCall += RunBuild;
     }
