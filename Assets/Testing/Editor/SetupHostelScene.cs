@@ -7,12 +7,10 @@ using UnityEngine.Rendering;
 public static class SetupHostelScene
 {
     [MenuItem("Hostel/Build Full Hostel Scene")]
-    [InitializeOnLoadMethod]
     public static void ExecuteSetup()
     {
-        // Run rebuild on assembly reload to sync scene
         if (EditorApplication.isPlayingOrWillChangePlaymode) return;
-        EditorApplication.delayCall += RunBuild;
+        RunBuild();
     }
 
     private static void RunBuild()

@@ -26,7 +26,15 @@ public class PreGameLobbyManager : MonoBehaviour
     void Awake()
     {
         Instance = this;
-        CleanupResidualLobbyObjects();
+        // Connect directly to existing scene objects without modifying, destroying, or recreating anything
+        if (centralBarrier == null) centralBarrier = GameObject.Find("Central_Team_Forcefield_Barrier");
+        if (hostelGateBarrier == null) hostelGateBarrier = GameObject.Find("Hostel_Entrance_Forcefield_Gate");
+
+        GameObject lobbyFloor = GameObject.Find("Lobby_Terrace_Floor");
+        if (lobbyFloor != null)
+        {
+            playerLobbySpawnPos = lobbyFloor.transform.position + new Vector3(-4.5f, 0.9f, 0f);
+        }
     }
 
     void Update()
@@ -52,8 +60,16 @@ public class PreGameLobbyManager : MonoBehaviour
 
     public void BuildLobbyEnvironment(Vector3 buildingCenter, float buildingMinZ)
     {
-        // 1. Clean up any existing lobby arena and residual pads/signs/rivals
-        CleanupResidualLobbyObjects();
+        // If the lobby arena already exists in the scene, DO NOT touch or overwrite it!
+        // Preserves the exact visual look and any manual edits you make in Unity.
+        if (GameObject.Find("[PRE_GAME_LOBBY_ARENA]") != null)
+        {
+            if (centralBarrier == null) centralBarrier = GameObject.Find("Central_Team_Forcefield_Barrier");
+            if (hostelGateBarrier == null) hostelGateBarrier = GameObject.Find("Hostel_Entrance_Forcefield_Gate");
+            GameObject floor = GameObject.Find("Lobby_Terrace_Floor");
+            if (floor != null) playerLobbySpawnPos = floor.transform.position + new Vector3(-4.5f, 0.9f, 0f);
+            return;
+        }
 
         GameObject lobbyRoot = new GameObject("[PRE_GAME_LOBBY_ARENA]");
 

@@ -63,6 +63,17 @@ public class HostelSceneSetup : MonoBehaviour
         lobbyManager = lobbySys.GetComponent<PreGameLobbyManager>();
         if (lobbyManager == null) lobbyManager = lobbySys.AddComponent<PreGameLobbyManager>();
 
+        // If the lobby arena already exists in the scene, DO NOT touch or regenerate it!
+        // Preserves your exact scene design and any manual edits you make in Unity.
+        if (GameObject.Find("[PRE_GAME_LOBBY_ARENA]") != null)
+        {
+            if (lobbyManager.centralBarrier == null) lobbyManager.centralBarrier = GameObject.Find("Central_Team_Forcefield_Barrier");
+            if (lobbyManager.hostelGateBarrier == null) lobbyManager.hostelGateBarrier = GameObject.Find("Hostel_Entrance_Forcefield_Gate");
+            GameObject floor = GameObject.Find("Lobby_Terrace_Floor");
+            if (floor != null) lobbyManager.playerLobbySpawnPos = floor.transform.position + new Vector3(-4.5f, 0.9f, 0f);
+            return;
+        }
+
         lobbyManager.BuildLobbyEnvironment(buildingBounds.center, buildingBounds.min.z);
     }
 
