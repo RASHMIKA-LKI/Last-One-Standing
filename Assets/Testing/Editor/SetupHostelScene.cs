@@ -229,8 +229,16 @@ public static class SetupHostelScene
         // Floor Tracker
         var tracker = sysRoot.AddComponent<FloorTracker>();
         tracker.targetTransform = player.transform;
-        tracker.groundFloorY = b.min.y;
-        tracker.floorHeight = b.size.y / 4.0f;
+
+        float fH = b.size.y / 4.0f;
+        float gY = b.min.y;
+        tracker.floors = new System.Collections.Generic.List<FloorTracker.FloorInfo>()
+        {
+            new FloorTracker.FloorInfo { floorNumber = 1, floorName = "Floor 1 - Lobby & Reception", minY = gY - 5f, maxY = gY + fH },
+            new FloorTracker.FloorInfo { floorNumber = 2, floorName = "Floor 2 - Dormitory Wing A", minY = gY + fH, maxY = gY + fH * 2 },
+            new FloorTracker.FloorInfo { floorNumber = 3, floorName = "Floor 3 - Dormitory Wing B", minY = gY + fH * 2, maxY = gY + fH * 3 },
+            new FloorTracker.FloorInfo { floorNumber = 4, floorName = "Floor 4 - Study & Penthouse", minY = gY + fH * 3, maxY = gY + fH * 4 + 15f }
+        };
 
         // Minimap UI
         var minimap = sysRoot.AddComponent<FloorMinimapUI>();
@@ -322,3 +330,4 @@ public static class SetupHostelScene
         return b;
     }
 }
+
