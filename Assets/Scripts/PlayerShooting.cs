@@ -339,6 +339,7 @@ public class PlayerShooting : MonoBehaviour
         GameObject sparksObj = new GameObject("Laser_ImpactSparks");
         sparksObj.transform.SetParent(transform);
         impactSparks = sparksObj.AddComponent<ParticleSystem>();
+        impactSparks.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
         var main = impactSparks.main;
         main.duration = 0.15f;

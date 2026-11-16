@@ -104,7 +104,7 @@ public class HostelSceneSetup : MonoBehaviour
 
         if (buildingInstance != null)
         {
-            // Ensure all meshes have MeshColliders so player/enemies can walk on floors and stairs
+            // Ensure all meshes have MeshColliders so walls/stairs are solid
             int colCount = 0;
             MeshRenderer[] renderers = buildingInstance.GetComponentsInChildren<MeshRenderer>();
             foreach (var r in renderers)
@@ -120,6 +120,26 @@ public class HostelSceneSetup : MonoBehaviour
             }
             Debug.Log($"[HostelSceneSetup] Configured {colCount} MeshColliders on Hostel geometry.");
             buildingBounds = CalculateBounds(buildingInstance);
+
+            // Add solid floor slabs to guarantee 100% stable footing on every level
+            if (GameObject.Find("Hostel_Floor_Slabs") == null)
+            {
+                GameObject slabsRoot = new GameObject("Hostel_Floor_Slabs");
+                slabsRoot.transform.parent = buildingInstance.transform;
+                float floorH = buildingBounds.size.y / 4.0f;
+                float slabThickness = 0.3f;
+
+                for (int i = 0; i < 4; i++)
+                {
+                    float floorSurfaceY = i * floorH;
+                    GameObject slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    slab.name = $"Floor_{i + 1}_SolidSlab";
+                    slab.transform.parent = slabsRoot.transform;
+                    slab.transform.position = new Vector3(buildingBounds.center.x, floorSurfaceY - slabThickness / 2.0f, buildingBounds.center.z);
+                    slab.transform.localScale = new Vector3(buildingBounds.size.x, slabThickness, buildingBounds.size.z);
+                    Destroy(slab.GetComponent<MeshRenderer>()); // Invisible solid collision
+                }
+            }
         }
         else
         {
@@ -134,12 +154,13 @@ public class HostelSceneSetup : MonoBehaviour
         GameObject plane = GameObject.CreatePrimitive(PrimitiveType.Cube);
         plane.name = "Ground_Courtyard";
 
-        float groundY = buildingBounds.min.y;
-        float w = Mathf.Max(buildingBounds.size.x * 1.5f, groundPlaneSize);
-        float l = Mathf.Max(buildingBounds.size.z * 2.5f, groundPlaneSize);
+        float w = Mathf.Max(buildingBounds.size.x * 2.0f, 200f);
+        float l = Mathf.Max(buildingBounds.size.z * 3.0f, 200f);
+        float thickness = 4.0f;
 
-        plane.transform.position = new Vector3(buildingBounds.center.x, groundY - 0.25f, buildingBounds.center.z);
-        plane.transform.localScale = new Vector3(w, 0.5f, l);
+        // Position ground box so top surface is exactly at Y = 0.0f
+        plane.transform.position = new Vector3(buildingBounds.center.x, -thickness / 2.0f, buildingBounds.center.z);
+        plane.transform.localScale = new Vector3(w, thickness, l);
 
         Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
         mat.color = new Color(0.24f, 0.26f, 0.28f);
@@ -166,10 +187,14 @@ public class HostelSceneSetup : MonoBehaviour
         playerInstance.name = "Player_Survivor";
         playerInstance.tag = "Player";
 
-        // Position in front of the hostel entrance
-        float spawnX = buildingBounds.center.x + playerSpawnOffset.x;
-        float spawnY = buildingBounds.min.y + playerSpawnOffset.y;
-        float spawnZ = buildingBounds.min.z + playerSpawnOffset.z;
+        // CRITICAL: Remove default CapsuleCollider so it doesn't conflict with CharacterController
+        CapsuleCollider defaultCol = playerInstance.GetComponent<CapsuleCollider>();
+        if (defaultCol != null) Destroy(defaultCol);
+
+        // Position directly on the ground courtyard (Y = 1.0m puts CharacterController center above Y = 0)
+        float spawnX = buildingBounds.center.x;
+        float spawnY = 1.0f;
+        float spawnZ = buildingBounds.min.z - 6.0f;
         playerInstance.transform.position = new Vector3(spawnX, spawnY, spawnZ);
         playerInstance.transform.rotation = Quaternion.Euler(0f, 0f, 0f); // Looking towards building (+Z)
 
