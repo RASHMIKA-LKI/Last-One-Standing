@@ -127,78 +127,35 @@ public static class SetupHostelScene
             instance.transform.rotation = Quaternion.identity;
         }
 
-        // Configure solid BoxColliders for all floors, rooms, and furniture, and convex ramps for stairs
-        MeshFilter[] allFilters = instance.GetComponentsInChildren<MeshFilter>(true);
-        int floorCount = 0;
-        int boxCount = 0;
-        int rampCount = 0;
-        int meshCount = 0;
+        // 1. Remove ALL COL_ helper objects (COL_Room_*_Floor, etc.)
+        // Clean up hierarchy and preserve only original floors and architecture
+        Transform[] allChildren = instance.GetComponentsInChildren<Transform>(true);
+        int removedColCount = 0;
+        foreach (var child in allChildren)
+        {
+            if (child != null && child.gameObject.name.StartsWith("COL_"))
+            {
+                Object.DestroyImmediate(child.gameObject);
+                removedColCount++;
+            }
+        }
 
+        // 2. Ensure ALL remaining original building meshes (floors, rooms, architecture, stairs) have solid MeshColliders
+        MeshFilter[] allFilters = instance.GetComponentsInChildren<MeshFilter>(true);
+        int meshCount = 0;
         foreach (var mf in allFilters)
         {
             if (mf == null || mf.sharedMesh == null) continue;
+            if (mf.gameObject.name.StartsWith("COL_")) continue;
 
-            string objName = mf.gameObject.name;
-            bool isCol = objName.StartsWith("COL_");
-            bool isFloor = objName.Contains("Floor");
-            bool isRamp = objName.Contains("Ramp") || (isCol && objName.Contains("Stair"));
-
-            if (isFloor)
-            {
-                // CRITICAL: Remove thin MeshCollider and add solid 0.85m thick BoxCollider flush with walking surface
-                MeshCollider mc = mf.GetComponent<MeshCollider>();
-                if (mc != null) Object.DestroyImmediate(mc);
-
-                BoxCollider bc = mf.GetComponent<BoxCollider>();
-                if (bc == null) bc = mf.gameObject.AddComponent<BoxCollider>();
-
-                Vector3 meshSize = mf.sharedMesh.bounds.size;
-                Vector3 meshCenter = mf.sharedMesh.bounds.center;
-
-                float solidThickness = Mathf.Max(meshSize.y, 0.85f);
-                float originalTopY = meshCenter.y + (meshSize.y * 0.5f);
-
-                bc.size = new Vector3(meshSize.x, solidThickness, meshSize.z);
-                bc.center = new Vector3(meshCenter.x, originalTopY - (solidThickness * 0.5f), meshCenter.z);
-                bc.isTrigger = false;
-                floorCount++;
-                boxCount++;
-            }
-            else if (isRamp)
-            {
-                BoxCollider bc = mf.GetComponent<BoxCollider>();
-                if (bc != null) Object.DestroyImmediate(bc);
-
-                MeshCollider mc = mf.GetComponent<MeshCollider>();
-                if (mc == null) mc = mf.gameObject.AddComponent<MeshCollider>();
-                mc.sharedMesh = mf.sharedMesh;
-                mc.convex = true;
-                mc.isTrigger = false;
-                rampCount++;
-                meshCount++;
-            }
-            else if (isCol)
-            {
-                MeshCollider mc = mf.GetComponent<MeshCollider>();
-                if (mc != null) Object.DestroyImmediate(mc);
-
-                BoxCollider bc = mf.GetComponent<BoxCollider>();
-                if (bc == null) bc = mf.gameObject.AddComponent<BoxCollider>();
-                bc.center = mf.sharedMesh.bounds.center;
-                bc.size = mf.sharedMesh.bounds.size;
-                bc.isTrigger = false;
-                boxCount++;
-            }
-            else
-            {
-                MeshCollider mc = mf.GetComponent<MeshCollider>();
-                if (mc == null) mc = mf.gameObject.AddComponent<MeshCollider>();
-                mc.sharedMesh = mf.sharedMesh;
-                mc.isTrigger = false;
-                meshCount++;
-            }
+            MeshCollider mc = mf.GetComponent<MeshCollider>();
+            if (mc == null) mc = mf.gameObject.AddComponent<MeshCollider>();
+            mc.sharedMesh = mf.sharedMesh;
+            mc.isTrigger = false;
+            meshCount++;
         }
-        Debug.Log($"[SetupHostelScene] Configured colliders: {floorCount} solid floor BoxColliders, {boxCount} total BoxColliders, {rampCount} convex ramps, {meshCount} MeshColliders.");
+
+        Debug.Log($"[SetupHostelScene] Removed {removedColCount} COL_ helper objects. Configured {meshCount} MeshColliders on original building geometry.");
         return instance;
     }
 

@@ -113,85 +113,36 @@ public class HostelSceneSetup : MonoBehaviour
             GameObject oldSlabs = GameObject.Find("Hostel_Floor_Slabs");
             if (oldSlabs != null) Destroy(oldSlabs);
 
-            // Configure collision across all building geometry
-            int floorCount = 0;
-            int boxColCount = 0;
-            int rampCount = 0;
-            int meshColCount = 0;
+            // 1. Remove ALL COL_ helper objects (COL_Room_*_Floor, etc.)
+            // The user requested: "remove all COL_Room_... just let's keep the original floor"
+            Transform[] allChildren = buildingInstance.GetComponentsInChildren<Transform>(true);
+            int removedColCount = 0;
+            foreach (var child in allChildren)
+            {
+                if (child != null && child.gameObject.name.StartsWith("COL_"))
+                {
+                    child.gameObject.SetActive(false); // Disable immediately
+                    Destroy(child.gameObject);
+                    removedColCount++;
+                }
+            }
 
+            // 2. Ensure ALL remaining original building meshes (floors, rooms, architecture, stairs) have solid MeshColliders
+            int originalMeshCount = 0;
             MeshFilter[] allFilters = buildingInstance.GetComponentsInChildren<MeshFilter>(true);
             foreach (var mf in allFilters)
             {
                 if (mf == null || mf.sharedMesh == null) continue;
+                if (mf.gameObject.name.StartsWith("COL_")) continue; // Skip any COL_ objects awaiting destruction
 
-                string objName = mf.gameObject.name;
-                bool isCol = objName.StartsWith("COL_");
-                bool isFloor = objName.Contains("Floor");
-                bool isRamp = objName.Contains("Ramp") || (isCol && objName.Contains("Stair"));
-
-                if (isFloor)
-                {
-                    // CRITICAL FIX FOR COL_Room_5_Floor AND ALL ROOM FLOORS:
-                    // Thin non-convex MeshColliders cause PhysX CharacterControllers to fall through.
-                    // Replace with a solid 3D BoxCollider that extends 0.85m downwards while keeping
-                    // the top walking surface flush with the original mesh height.
-                    MeshCollider mc = mf.GetComponent<MeshCollider>();
-                    if (mc != null) Destroy(mc);
-
-                    BoxCollider bc = mf.GetComponent<BoxCollider>();
-                    if (bc == null) bc = mf.gameObject.AddComponent<BoxCollider>();
-
-                    Vector3 meshSize = mf.sharedMesh.bounds.size;
-                    Vector3 meshCenter = mf.sharedMesh.bounds.center;
-
-                    float solidThickness = Mathf.Max(meshSize.y, 0.85f);
-                    float originalTopY = meshCenter.y + (meshSize.y * 0.5f);
-
-                    bc.size = new Vector3(meshSize.x, solidThickness, meshSize.z);
-                    bc.center = new Vector3(meshCenter.x, originalTopY - (solidThickness * 0.5f), meshCenter.z);
-                    bc.isTrigger = false;
-                    floorCount++;
-                    boxColCount++;
-                }
-                else if (isRamp)
-                {
-                    // Stair ramps: Use convex MeshCollider to create a solid 3D wedge
-                    BoxCollider bc = mf.GetComponent<BoxCollider>();
-                    if (bc != null) Destroy(bc);
-
-                    MeshCollider mc = mf.GetComponent<MeshCollider>();
-                    if (mc == null) mc = mf.gameObject.AddComponent<MeshCollider>();
-                    mc.sharedMesh = mf.sharedMesh;
-                    mc.convex = true;
-                    mc.isTrigger = false;
-                    rampCount++;
-                    meshColCount++;
-                }
-                else if (isCol)
-                {
-                    // Lockers, desks, bunks, walls, guards: All are box collision shapes
-                    MeshCollider mc = mf.GetComponent<MeshCollider>();
-                    if (mc != null) Destroy(mc);
-
-                    BoxCollider bc = mf.GetComponent<BoxCollider>();
-                    if (bc == null) bc = mf.gameObject.AddComponent<BoxCollider>();
-                    bc.center = mf.sharedMesh.bounds.center;
-                    bc.size = mf.sharedMesh.bounds.size;
-                    bc.isTrigger = false;
-                    boxColCount++;
-                }
-                else
-                {
-                    // Visual meshes (walls, outer facade, roof, etc.)
-                    MeshCollider mc = mf.GetComponent<MeshCollider>();
-                    if (mc == null) mc = mf.gameObject.AddComponent<MeshCollider>();
-                    mc.sharedMesh = mf.sharedMesh;
-                    mc.isTrigger = false;
-                    meshColCount++;
-                }
+                MeshCollider mc = mf.GetComponent<MeshCollider>();
+                if (mc == null) mc = mf.gameObject.AddComponent<MeshCollider>();
+                mc.sharedMesh = mf.sharedMesh;
+                mc.isTrigger = false;
+                originalMeshCount++;
             }
 
-            Debug.Log($"[HostelSceneSetup] Colliders successfully configured: {floorCount} solid floor BoxColliders (including COL_Room_5_Floor), {boxColCount} total BoxColliders, {rampCount} convex ramps, {meshColCount} MeshColliders.");
+            Debug.Log($"[HostelSceneSetup] Removed {removedColCount} COL_ helper objects. Configured {originalMeshCount} solid MeshColliders on original building floors, rooms, and architecture.");
             buildingBounds = CalculateBounds(buildingInstance);
         }
         else
