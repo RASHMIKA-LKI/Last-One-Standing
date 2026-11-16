@@ -35,19 +35,35 @@ public class HostelSceneSetup : MonoBehaviour
         // 3. Setup Ground Courtyard Plane
         SetupGroundPlane();
 
-        // 4. Setup Player in Front of Hostel
+        // 4. Setup Pre-Game Lobby Staging Arena (Two Teams + Forcefield Barrier)
+        SetupPreGameLobby();
+
+        // 5. Setup Player in Front of Hostel on Blue Team Pad
         SetupPlayer();
 
-        // 5. Setup Gameplay Systems
+        // 6. Setup Gameplay Systems
         SetupSystems();
 
-        // 6. Spawn Enemies Across All Floors
+        // 7. Spawn Enemies Across All Floors
         if (spawnEnemies)
         {
             SetupEnemies();
         }
 
         Debug.Log("[HostelSceneSetup] Hostel scene initialized successfully!");
+    }
+
+    private PreGameLobbyManager lobbyManager;
+
+    private void SetupPreGameLobby()
+    {
+        GameObject lobbySys = GameObject.Find("[LOBBY_MANAGER]");
+        if (lobbySys == null) lobbySys = new GameObject("[LOBBY_MANAGER]");
+
+        lobbyManager = lobbySys.GetComponent<PreGameLobbyManager>();
+        if (lobbyManager == null) lobbyManager = lobbySys.AddComponent<PreGameLobbyManager>();
+
+        lobbyManager.BuildLobbyEnvironment(buildingBounds.center, buildingBounds.min.z);
     }
 
     private void SetupLightingAndAtmosphere()
@@ -195,12 +211,13 @@ public class HostelSceneSetup : MonoBehaviour
         CapsuleCollider defaultCol = playerInstance.GetComponent<CapsuleCollider>();
         if (defaultCol != null) Destroy(defaultCol);
 
-        // Position directly on the ground courtyard (Y = 1.0m puts CharacterController center above Y = 0)
-        float spawnX = buildingBounds.center.x;
-        float spawnY = 1.0f;
-        float spawnZ = buildingBounds.min.z - 6.0f;
-        playerInstance.transform.position = new Vector3(spawnX, spawnY, spawnZ);
-        playerInstance.transform.rotation = Quaternion.Euler(0f, 0f, 0f); // Looking towards building (+Z)
+        // Position on Team Blue's primary staging pad facing across the forcefield towards Team Red
+        Vector3 spawnPos = (lobbyManager != null && lobbyManager.blueSpawnPoint != null)
+            ? lobbyManager.blueSpawnPoint.position + Vector3.up * 1.0f
+            : new Vector3(buildingBounds.center.x - 4.5f, 1.0f, buildingBounds.min.z - 21.5f);
+
+        playerInstance.transform.position = spawnPos;
+        playerInstance.transform.rotation = Quaternion.Euler(0f, 65f, 0f); // Looking across the forcefield at opposing Team Red
 
         // CharacterController tuned for smooth stair and slope traversal
         var cc = playerInstance.GetComponent<CharacterController>();

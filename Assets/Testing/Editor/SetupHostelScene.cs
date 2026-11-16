@@ -42,7 +42,14 @@ public static class SetupHostelScene
             SetupGroundPlane(b);
         }
 
-        // 4. Create Player in front of the Hostel
+        // 4. Create Pre-Game Lobby Staging Arena (Two Teams + Forcefield Barrier)
+        GameObject lobbySys = GameObject.Find("[LOBBY_MANAGER]");
+        if (lobbySys == null) lobbySys = new GameObject("[LOBBY_MANAGER]");
+        var lobbyManager = lobbySys.GetComponent<PreGameLobbyManager>();
+        if (lobbyManager == null) lobbyManager = lobbySys.AddComponent<PreGameLobbyManager>();
+        lobbyManager.BuildLobbyEnvironment(b.center, b.min.z);
+
+        // 5. Create Player in front of the Hostel on Blue Team Pad
         GameObject playerObj = GameObject.Find("Player_Survivor");
         if (playerObj == null)
         {
@@ -195,11 +202,9 @@ public static class SetupHostelScene
         CapsuleCollider defaultCol = player.GetComponent<CapsuleCollider>();
         if (defaultCol != null) Object.DestroyImmediate(defaultCol);
 
-        // Position in front of hostel courtyard facing entrance
-        float spawnZ = b.min.z - 10f; // 10 meters in front of the building
-        float spawnY = b.min.y + 1.1f;
-        player.transform.position = new Vector3(b.center.x, spawnY, spawnZ);
-        player.transform.rotation = Quaternion.Euler(0f, 0f, 0f); // Looking towards building (+Z)
+        // Position on Team Blue's primary pad facing across the forcefield towards Team Red
+        player.transform.position = new Vector3(b.center.x - 4.5f, 1.0f, b.min.z - 21.5f);
+        player.transform.rotation = Quaternion.Euler(0f, 65f, 0f); // Looking across forcefield at opposing team
 
         // CharacterController
         var cc = player.GetComponent<CharacterController>();
