@@ -18,6 +18,13 @@ public class PlayerController : MonoBehaviour
     public float minPitch = -85f;
     public float maxPitch = 85f;
 
+    [Header("Animation")]
+    public Animator animator;
+
+    [Header("Weapon & Visuals")]
+    public Transform headBone;
+    public Transform gunTransform;
+
     [Header("Status")]
     public bool isFrozen = false;
 
@@ -29,6 +36,10 @@ public class PlayerController : MonoBehaviour
     void Awake()
     {
         controller = GetComponent<CharacterController>();
+
+        // Cap framerate and enable V-Sync to prevent CPU/GPU thermal overload (drops temps from 90°C to ~50-60°C)
+        QualitySettings.vSyncCount = 1;
+        Application.targetFrameRate = 60;
     }
 
     void Start()
@@ -45,6 +56,52 @@ public class PlayerController : MonoBehaviour
             {
                 cameraHolder = cam.transform;
             }
+        }
+
+        if (animator == null)
+        {
+            animator = GetComponentInChildren<Animator>();
+        }
+
+        // Auto-assign Avatar and Controller at runtime if missing
+        if (animator != null)
+        {
+            if (animator.avatar == null)
+            {
+#if UNITY_EDITOR
+                UnityEngine.Object[] assets = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/Models/Characters/Ch38_nonPBR.fbx");
+                foreach (var obj in assets)
+                {
+                    if (obj is Avatar av) { animator.avatar = av; break; }
+                }
+#endif
+            }
+
+            if (animator.runtimeAnimatorController == null)
+            {
+#if UNITY_EDITOR
+                animator.runtimeAnimatorController = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/Models/Characters/Animation/Player_Animator.controller");
+#endif
+            }
+            animator.applyRootMotion = false;
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+
+            // Ensure WeaponIKController is attached
+            if (animator.GetComponent<WeaponIKController>() == null)
+            {
+                animator.gameObject.AddComponent<WeaponIKController>();
+            }
+        }
+
+        // Ensure Equipped_Rifle scale is clean (1, 1, 1) - mesh is scaled at import
+        if (gunTransform == null && cameraHolder != null)
+        {
+            Transform gun = cameraHolder.Find("Equipped_Rifle");
+            if (gun != null) gunTransform = gun;
+        }
+        if (gunTransform != null)
+        {
+            gunTransform.localScale = Vector3.one;
         }
     }
 
@@ -151,6 +208,10 @@ public class PlayerController : MonoBehaviour
         if (jumpPressed && isGrounded)
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            if (animator != null && animator.runtimeAnimatorController != null)
+            {
+                animator.SetTrigger("Jump");
+            }
         }
 
         // Apply gravity
@@ -159,6 +220,14 @@ public class PlayerController : MonoBehaviour
         // Combine horizontal and vertical move into ONE single Move call (prevents falling through stairs)
         Vector3 combinedMove = move + Vector3.up * velocity.y;
         controller.Move(combinedMove * Time.deltaTime);
+
+        // Update Animator parameters
+        if (animator != null && animator.runtimeAnimatorController != null)
+        {
+            float targetSpeed = inputMove.magnitude * currentSpeed;
+            animator.SetFloat("Speed", targetSpeed, 0.1f, Time.deltaTime);
+            animator.SetBool("IsGrounded", isGrounded);
+        }
 
         // Failsafe: If player somehow drops out of bounds below ground, respawn at entrance
         if (transform.position.y < -5.0f)
@@ -187,6 +256,61 @@ public class PlayerController : MonoBehaviour
         if (frozen)
         {
             velocity = Vector3.zero;
+        }
+    }
+
+    public void SyncComponents()
+    {
+        if (cameraHolder == null)
+        {
+            Camera cam = GetComponentInChildren<Camera>();
+            if (cam != null) cameraHolder = cam.transform;
+        }
+
+        if (animator == null)
+        {
+            animator = GetComponentInChildren<Animator>();
+        }
+
+        // Auto-assign Avatar and Controller at runtime if missing
+        if (animator != null)
+        {
+            if (animator.avatar == null)
+            {
+#if UNITY_EDITOR
+                UnityEngine.Object[] assets = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/Models/Characters/Ch38_nonPBR.fbx");
+                foreach (var obj in assets)
+                {
+                    if (obj is Avatar av) { animator.avatar = av; break; }
+                }
+#endif
+            }
+
+            if (animator.runtimeAnimatorController == null)
+            {
+#if UNITY_EDITOR
+                animator.runtimeAnimatorController = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/Models/Characters/Animation/Player_Animator.controller");
+#endif
+            }
+            animator.applyRootMotion = false;
+            animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+
+            // Ensure WeaponIKController is attached
+            if (animator.GetComponent<WeaponIKController>() == null)
+            {
+                animator.gameObject.AddComponent<WeaponIKController>();
+            }
+        }
+
+        // Ensure Equipped_Rifle scale is clean (1, 1, 1) - mesh is scaled at import
+        if (gunTransform == null && cameraHolder != null)
+        {
+            Transform gun = cameraHolder.Find("Equipped_Rifle");
+            if (gun != null) gunTransform = gun;
+        }
+        if (gunTransform != null)
+        {
+            gunTransform.localScale = Vector3.one;
         }
     }
 }
